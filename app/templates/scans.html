@@ -38,7 +38,7 @@
                 <th>Status</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="scans-table-body">
             {% for scan in scans %}
             <tr>
                 <td>{{ scan.id }}</td>
@@ -54,8 +54,22 @@
 function refreshTable() {
     const name = $('#name-filter').val();
     const status = $('#status-filter').val();
-    $.get('/scans/table', { name: name, status: status }, function(data) {
-        $('#scans-table').html(data);
+    $.get('/scans/list', { name: name, status: status }, function(response) {
+        const scans = response.scans;
+        const tbody = $('#scans-table-body');
+        tbody.empty();
+        scans.forEach(scan => {
+            tbody.append(`
+                <tr>
+                    <td>${scan.id}</td>
+                    <td>${scan.name}</td>
+                    <td>${scan.timestamp}</td>
+                    <td>${scan.status}</td>
+                </tr>
+            `);
+        });
+    }, 'json').fail(function() {
+        toastr.error('Failed to refresh table');
     });
 }
 
@@ -66,7 +80,7 @@ function startScan() {
         return;
     }
     $.ajax({
-        url: '/scans',
+        url: '/scans/create-scan',
         type: 'POST',
         contentType: 'application/json',
         data: JSON.stringify({ name: scanName }),

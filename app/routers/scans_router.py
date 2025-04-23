@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, BackgroundTasks, JSONResponse
+from fastapi import APIRouter, Depends, BackgroundTasks
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
-from ..models.database import get_db, SessionLocal
-from ..services.scan_tracker import create_scan, get_scans, get_scan
+from ..models.database import get_db, SessionLocal, Scan
 from ..scraper.scraper import scrape_posts
 
 scans_router = APIRouter(prefix="/scans", tags=["Scraper Scans Router"])
@@ -22,13 +22,40 @@ class ScanResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class ScanApiResponse(BaseModel):
+class ScanCreateResponse(BaseModel):
     message: str
-    scan: ScanResponse | None = None
-    scans: list[ScanResponse] | None = None
+    scan: ScanResponse
 
+class ScanListResponse(BaseModel):
+    message: str
+    scans: list[ScanResponse]
+
+
+def create_scan(db: Session, scan: ScanCreate):
+    db_scan = Scan(
+        name=scan.name,
+        timestamp=datetime.utcnow(),
+        status="running",
+        result=""
+    )
+    db.add(db_scan)
+    db.commit()
+    db.refresh(db_scan)
+    return db_scan
+
+def get_scan(db: Session, scan_id: int):
+    return db.query(Scan).filter(Scan.id == scan_id).first()
+
+def get_scans(db: Session, name: str = None, status: str = None):
+    query = db.query(Scan)
+    if name:
+        query = query.filter(Scan.name.contains(name))
+    if status:
+        query = query.filter(Scan.status == status)
+    return query.all()
+
+# Background Task
 def run_scan(scan_id: int):
-    """Background task to run the scraper and update scan status."""
     db = SessionLocal()
     try:
         result = scrape_posts()
@@ -46,27 +73,27 @@ def run_scan(scan_id: int):
     finally:
         db.close()
 
-@scans_router.post("", response_model=ScanApiResponse)
-async def scans_endpoint(
-    scan: ScanCreate | None = None,
-    name: str | None = None,
-    status: str | None = None,
-    background_tasks: BackgroundTasks = Depends(),
+# API Endpoints
+@scans_router.post("/create-scan", response_model=ScanCreateResponse, status_code=201)
+async def create_scan_endpoint(
+    scan: ScanCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    if scan and scan.name:
-        # Create a new scan
-        db_scan = create_scan(db, scan)
-        background_tasks.add_task(run_scan, db_scan.id)
-        return JSONResponse(
-            status_code=202,
-            content={"message": "Scan started", "scan": ScanResponse.from_orm(db_scan).dict()}
-        )
-    else:
-        # List scans with optional filters
-        scans = get_scans(db, name, status)
-        return JSONResponse(
-            status_code=200,
-            content={"message": "Scans retrieved", "scans": [ScanResponse.from_orm(s).dict() for s in scans]}
-        )
+    db_scan = create_scan(db, scan)
+    background_tasks.add_task(run_scan, db_scan.id)
+    return JSONResponse(
+        content={"message": "Scan started", "scan": ScanResponse.from_orm(db_scan).dict()}
+    )
+
+@scans_router.get("/list", response_model=ScanListResponse)
+async def list_scans_endpoint(
+    name: str | None = None,
+    status: str | None = None,
+    db: Session = Depends(get_db)
+):
+    scans = get_scans(db, name, status)
+    return JSONResponse(
+        content={"message": "Scans retrieved", "scans": [ScanResponse.from_orm(s).dict() for s in scans]}
+    )
 
