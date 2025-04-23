@@ -26,15 +26,15 @@ class ScanResponse(BaseModel):
 
 class ScanCreateResponse(BaseModel):
     message: str
-    scan: ScanResponse
+    scan: dict  # Changed to dict to avoid validation issues
 
 class ScanListResponse(BaseModel):
     message: str
-    scans: list[ScanResponse]
+    scans: list[dict]  # Changed to list of dicts
 
 class ScanDetailResponse(BaseModel):
     message: str
-    scan: ScanResponse
+    scan: dict  # Changed to dict
 
 # Database Functions
 def create_scan(db: Session, scan: ScanCreate):
@@ -73,7 +73,8 @@ def run_scan(scan_id: int):
         db_scan.status = "completed"
         db_scan.result = encoded_result
         db.commit()
-    except Exception:
+    except Exception as e:
+        print(f"Scan error: {str(e)}")
         db_scan = get_scan(db, scan_id)
         if db_scan:
             db_scan.status = "failed"
@@ -82,18 +83,36 @@ def run_scan(scan_id: int):
     finally:
         db.close()
 
-# Helper Function to Decode Base64 Result
-def decode_scan_result(base64_result: str) -> dict:
-    try:
-        if base64_result:
-            decoded = base64.b64decode(base64_result).decode('utf-8')
-            return json.loads(decoded)
-        return {"message": "No result available"}
-    except (base64.binascii.Error, json.JSONDecodeError, UnicodeDecodeError):
-        return {"error": "Invalid base64 or JSON format"}
+# Convert a Scan database object to a dict (with decoded result)
+def scan_to_dict(scan: Scan) -> dict:
+    """Convert a Scan object to a dictionary with decoded result"""
+    result_dict = {"message": "No result available"}
+    
+    if scan.result:
+        try:
+            # Step 1: Decode base64 to bytes
+            decoded_bytes = base64.b64decode(scan.result)
+            
+            # Step 2: Convert bytes to string
+            decoded_str = decoded_bytes.decode('utf-8')
+            
+            # Step 3: Parse JSON string to dict
+            result_dict = json.loads(decoded_str)
+        except Exception as e:
+            print(f"Failed to decode scan result: {str(e)}")
+            result_dict = {"error": f"Decoding error: {str(e)}"}
+    
+    # Create a dictionary representation
+    return {
+        "id": scan.id,
+        "name": scan.name,
+        "timestamp": scan.timestamp.isoformat(),
+        "status": scan.status,
+        "result": result_dict
+    }
 
 # API Endpoints
-@scans_router.post("/create-scan", response_model=ScanCreateResponse, status_code=201)
+@scans_router.post("/create-scan", status_code=201)
 async def create_scan_endpoint(
     scan: ScanCreate,
     background_tasks: BackgroundTasks,
@@ -101,38 +120,42 @@ async def create_scan_endpoint(
 ):
     db_scan = create_scan(db, scan)
     background_tasks.add_task(run_scan, db_scan.id)
-    scan_response = ScanResponse(
-        id=db_scan.id,
-        name=db_scan.name,
-        timestamp=db_scan.timestamp.isoformat(),
-        status=db_scan.status,
-        result=decode_scan_result(db_scan.result)
-    )
+    
+    scan_dict = scan_to_dict(db_scan)
+    
     return JSONResponse(
-        content={"message": "Scan started", "scan": scan_response.dict()}
+        content={"message": "Scan started", "scan": scan_dict}
     )
 
-@scans_router.get("/list", response_model=ScanListResponse)
+@scans_router.get("/list")
 async def list_scans_endpoint(
     name: str | None = None,
     status: str | None = None,
     db: Session = Depends(get_db)
 ):
     scans = get_scans(db, name, status)
-    scan_responses = [
-        ScanResponse(
-            id=scan.id,
-            name=scan.name,
-            timestamp=scan.timestamp.isoformat(),
-            status=scan.status,
-            result=decode_scan_result(scan.result)
-        ) for scan in scans
-    ]
+    scan_dicts = []
+    
+    for scan in scans:
+        try:
+            scan_dict = scan_to_dict(scan)
+            scan_dicts.append(scan_dict)
+        except Exception as e:
+            print(f"Error processing scan {scan.id}: {str(e)}")
+            # Include error information
+            scan_dicts.append({
+                "id": scan.id,
+                "name": scan.name,
+                "timestamp": scan.timestamp.isoformat() if scan.timestamp else None,
+                "status": scan.status,
+                "result": {"error": f"Processing error: {str(e)}"}
+            })
+    
     return JSONResponse(
-        content={"message": "Scans retrieved", "scans": [s.dict() for s in scan_responses]}
+        content={"message": "Scans retrieved", "scans": scan_dicts}
     )
 
-@scans_router.get("/{scan_id}", response_model=ScanDetailResponse)
+@scans_router.get("/{scan_id}")
 async def get_scan_endpoint(
     scan_id: int,
     db: Session = Depends(get_db)
@@ -140,13 +163,9 @@ async def get_scan_endpoint(
     db_scan = get_scan(db, scan_id)
     if not db_scan:
         raise HTTPException(status_code=404, detail="Scan not found")
-    scan_response = ScanResponse(
-        id=db_scan.id,
-        name=db_scan.name,
-        timestamp=db_scan.timestamp.isoformat(),
-        status=db_scan.status,
-        result=decode_scan_result(db_scan.result)
-    )
+    
+    scan_dict = scan_to_dict(db_scan)
+    
     return JSONResponse(
-        content={"message": "Scan retrieved", "scan": scan_response.dict()}
+        content={"message": "Scan retrieved", "scan": scan_dict}
     )
