@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, Depends
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from .models.database import engine, Base, Scan, get_db
-from .routers.scans_router import scans_router, get_scans
+from .routers.scans_router import scans_router, get_scans, decode_scan_result
 
 Base.metadata.create_all(bind=engine)
 
@@ -22,7 +22,11 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 @app.get("/scans")
 def scans_page(request: Request, db: Session = Depends(get_db)):
     scans = get_scans(db)
-    return templates.TemplateResponse("scans.html", {"request": request, "scans": scans})
+    # Decode results for template rendering
+    scans_with_decoded_results = [
+        {**scan.__dict__, "result": decode_scan_result(scan)} for scan in scans
+    ]
+    return templates.TemplateResponse("scans.html", {"request": request, "scans": scans_with_decoded_results})
 
 @app.get("/scans/table")
 def scans_table(
@@ -32,9 +36,13 @@ def scans_table(
     db: Session = Depends(get_db)
 ):
     scans = get_scans(db, name, status)
+    # Decode results for template rendering
+    scans_with_decoded_results = [
+        {**scan.__dict__, "result": decode_scan_result(scan)} for scan in scans
+    ]
     return templates.TemplateResponse(
         "scans.html",
-        {"request": request, "scans": scans},
+        {"request": request, "scans": scans_with_decoded_results},
         block_name="table_content"
     )
 

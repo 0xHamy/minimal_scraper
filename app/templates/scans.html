@@ -21,6 +21,22 @@
     </div>
 </dialog>
 
+<!-- Modal for Viewing Scan Results -->
+<dialog id="viewScanModal" class="modal">
+    <div class="modal-box">
+        <h3 id="view-scan-title" class="font-bold text-lg"></h3>
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text">Scan Result</span>
+            </label>
+            <pre id="view-scan-result" class="bg-base-200 p-4 rounded-lg w-full h-64 overflow-auto"></pre>
+        </div>
+        <div class="modal-action">
+            <button type="button" class="btn btn-ghost" onclick="closeViewModal()">Close</button>
+        </div>
+    </div>
+</dialog>
+
 <!-- Filters -->
 <div class="flex gap-4 mt-4">
     <input type="text" id="name-filter" placeholder="Search by name" class="input input-bordered" />
@@ -43,6 +59,7 @@
                 <th>Name</th>
                 <th>Timestamp</th>
                 <th>Status</th>
+                <th>View</th>
             </tr>
         </thead>
         <tbody id="scans-table-body">
@@ -52,6 +69,9 @@
                 <td>{{ scan.name }}</td>
                 <td>{{ scan.timestamp }}</td>
                 <td>{{ scan.status }}</td>
+                <td>
+                    <button class="btn btn-sm btn-primary" onclick="viewScan(${scan.id}, '${scan.name}')">View</button>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -68,6 +88,10 @@ function closeModal() {
     document.getElementById('startScanModal').close();
 }
 
+function closeViewModal() {
+    document.getElementById('viewScanModal').close();
+}
+
 function showToast(message, type) {
     const toast = $('<div>').addClass('toast toast-start');
     const alert = $('<div>').addClass(`alert ${type === 'error' ? 'alert-error' : 'alert-success'}`).text(message);
@@ -80,6 +104,7 @@ function refreshTable() {
     const name = $('#name-filter').val();
     const status = $('#status-filter').val();
     $.get('/scans/list', { name: name, status: status }, function(response) {
+        console.log('Refresh table response:', response);
         const scans = response.scans;
         const tbody = $('#scans-table-body');
         tbody.empty();
@@ -90,10 +115,14 @@ function refreshTable() {
                     <td>${scan.name}</td>
                     <td>${scan.timestamp}</td>
                     <td>${scan.status}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="viewScan(${scan.id}, '${scan.name}')">View</button>
+                    </td>
                 </tr>
             `);
         });
-    }, 'json').fail(function() {
+    }, 'json').fail(function(xhr) {
+        console.error('Refresh table failed:', xhr);
         showToast('Failed to refresh table', 'error');
     });
 }
@@ -110,13 +139,28 @@ function startScan() {
         contentType: 'application/json',
         data: JSON.stringify({ name: scanName }),
         success: function(response) {
+            console.log('Start scan response:', response);
             showToast(response.message, 'success');
             closeModal();
             refreshTable();
         },
         error: function(xhr) {
+            console.error('Start scan failed:', xhr);
             showToast('Failed to start scan', 'error');
         }
+    });
+}
+
+function viewScan(scanId, scanName) {
+    $.get(`/scans/${scanId}`, function(response) {
+        console.log('View scan response:', response);
+        const scan = response.scan;
+        $('#view-scan-title').text(scan.name);
+        $('#view-scan-result').text(JSON.stringify(scan.result, null, 2));
+        document.getElementById('viewScanModal').showModal();
+    }, 'json').fail(function(xhr) {
+        console.error('View scan failed:', xhr);
+        showToast('Failed to load scan result', 'error');
     });
 }
 </script>
