@@ -15,7 +15,7 @@ class ScanCreate(BaseModel):
 class ScanResponse(BaseModel):
     id: int
     name: str
-    timestamp: datetime
+    timestamp: str  # Changed to str for JSON serialization
     status: str
     result: str
 
@@ -30,7 +30,7 @@ class ScanListResponse(BaseModel):
     message: str
     scans: list[ScanResponse]
 
-
+# Database Functions
 def create_scan(db: Session, scan: ScanCreate):
     db_scan = Scan(
         name=scan.name,
@@ -82,8 +82,16 @@ async def create_scan_endpoint(
 ):
     db_scan = create_scan(db, scan)
     background_tasks.add_task(run_scan, db_scan.id)
+    # Convert datetime to ISO string for JSON serialization
+    scan_response = ScanResponse(
+        id=db_scan.id,
+        name=db_scan.name,
+        timestamp=db_scan.timestamp.isoformat(),
+        status=db_scan.status,
+        result=db_scan.result
+    )
     return JSONResponse(
-        content={"message": "Scan started", "scan": ScanResponse.from_orm(db_scan).dict()}
+        content={"message": "Scan started", "scan": scan_response.dict()}
     )
 
 @scans_router.get("/list", response_model=ScanListResponse)
@@ -93,7 +101,16 @@ async def list_scans_endpoint(
     db: Session = Depends(get_db)
 ):
     scans = get_scans(db, name, status)
+    # Convert datetime to ISO string for each scan
+    scan_responses = [
+        ScanResponse(
+            id=scan.id,
+            name=scan.name,
+            timestamp=scan.timestamp.isoformat(),
+            status=scan.status,
+            result=scan.result
+        ) for scan in scans
+    ]
     return JSONResponse(
-        content={"message": "Scans retrieved", "scans": [ScanResponse.from_orm(s).dict() for s in scans]}
+        content={"message": "Scans retrieved", "scans": [s.dict() for s in scan_responses]}
     )
-

@@ -2,9 +2,11 @@
 
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">Scans</h1>
-<button class="btn" onclick="startScanModal.showModal()">Start Scan</button>
+<button class="btn btn-primary" onclick="openModal()">Start Scan</button>
+
+<!-- Modal for Starting a Scan -->
 <dialog id="startScanModal" class="modal">
-    <form method="dialog" class="modal-box">
+    <div class="modal-box">
         <h3 class="font-bold text-lg">Start New Scan</h3>
         <div class="form-control">
             <label class="label">
@@ -13,10 +15,13 @@
             <input type="text" id="scan-name" class="input input-bordered" />
         </div>
         <div class="modal-action">
-            <button type="button" class="btn" onclick="startScan()">Start</button>
+            <button type="button" class="btn btn-primary" onclick="startScan()">Start</button>
+            <button type="button" class="btn btn-ghost" onclick="closeModal()">Close</button>
         </div>
-    </form>
+    </div>
 </dialog>
+
+<!-- Filters -->
 <div class="flex gap-4 mt-4">
     <input type="text" id="name-filter" placeholder="Search by name" class="input input-bordered" />
     <select id="status-filter" class="select select-bordered">
@@ -25,9 +30,11 @@
         <option value="completed">Completed</option>
         <option value="failed">Failed</option>
     </select>
-    <button class="btn" onclick="refreshTable()">Filter</button>
-    <button class="btn" onclick="refreshTable()">Refresh</button>
+    <button class="btn btn-primary" onclick="refreshTable()">Filter</button>
+    <button class="btn btn-primary" onclick="refreshTable()">Refresh</button>
 </div>
+
+<!-- Scans Table -->
 <div id="scans-table" class="mt-4">
     <table class="table w-full">
         <thead>
@@ -50,7 +57,25 @@
         </tbody>
     </table>
 </div>
+
+<!-- jQuery Scripts -->
 <script>
+function openModal() {
+    document.getElementById('startScanModal').showModal();
+}
+
+function closeModal() {
+    document.getElementById('startScanModal').close();
+}
+
+function showToast(message, type) {
+    const toast = $('<div>').addClass('toast toast-start');
+    const alert = $('<div>').addClass(`alert ${type === 'error' ? 'alert-error' : 'alert-success'}`).text(message);
+    toast.append(alert);
+    $('body').append(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
 function refreshTable() {
     const name = $('#name-filter').val();
     const status = $('#status-filter').val();
@@ -69,14 +94,14 @@ function refreshTable() {
             `);
         });
     }, 'json').fail(function() {
-        toastr.error('Failed to refresh table');
+        showToast('Failed to refresh table', 'error');
     });
 }
 
 function startScan() {
     const scanName = $('#scan-name').val();
     if (!scanName) {
-        toastr.error('Please enter a scan name');
+        showToast('Please enter a scan name', 'error');
         return;
     }
     $.ajax({
@@ -85,37 +110,14 @@ function startScan() {
         contentType: 'application/json',
         data: JSON.stringify({ name: scanName }),
         success: function(response) {
-            toastr.success(response.message);
-            $('#startScanModal').close();
+            showToast(response.message, 'success');
+            closeModal();
             refreshTable();
         },
         error: function(xhr) {
-            toastr.error('Failed to start scan');
+            showToast('Failed to start scan', 'error');
         }
     });
 }
 </script>
-{% endblock %}
-
-{% block table_content %}
-<table class="table w-full">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Timestamp</th>
-            <th>Status</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for scan in scans %}
-        <tr>
-            <td>{{ scan.id }}</td>
-            <td>{{ scan.name }}</td>
-            <td>{{ scan.timestamp }}</td>
-            <td>{{ scan.status }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
 {% endblock %}
