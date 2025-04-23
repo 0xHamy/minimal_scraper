@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title">Total Scans</h2>
+            <p>{{ total_scans }}</p>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title">Latest Scan</h2>
+            {% if latest_scan %}
+            <p>{{ latest_scan.name }} - {{ latest_scan.timestamp }}</p>
+            {% else %}
+            <p>No scans yet</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
