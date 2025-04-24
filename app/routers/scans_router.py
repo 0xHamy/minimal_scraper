@@ -6,7 +6,7 @@ from datetime import datetime
 import base64
 import json
 from ..models.database import get_db, SessionLocal, Scan
-from ..scraper.scraper import scrape_posts
+from ..services.scraper import scrape_posts
 
 scans_router = APIRouter(prefix="/scans", tags=["Scraper Scans Router"])
 
