@@ -109,35 +109,24 @@
     </div>
 </dialog>
 
-<!-- New Modal for Scan Configuration -->
+<!-- Modal for AI Classification Configuration -->
 <dialog id="scanConfigModal" class="modal">
     <div class="modal-box max-w-2xl">
-        <h3 class="text-2xl font-bold mb-6">Configure Scan</h3>
+        <h3 class="text-2xl font-bold mb-6">Configure AI Classification</h3>
         <form class="space-y-6">
-            <!-- Scan Name (as saved to the scans table) -->
+            <!-- Hidden Scan ID -->
+            <input type="hidden" id="scan-id" value="">
+            <!-- API Token -->
             <div class="form-control">
                 <label class="label">
-                    <span class="label-text font-semibold">Scan</span>
+                    <span class="label-text font-semibold">API Key</span>
                 </label>
                 <input 
                     type="text" 
-                    id="scan-name" 
+                    id="api-key" 
                     class="input input-bordered w-full" 
-                    placeholder="Enter scan name from scans table" 
+                    placeholder="Enter Claude API key" 
                     required 
-                />
-            </div>
-            
-            <!-- API Token (Hidden) -->
-            <div class="form-control hidden">
-                <label class="label">
-                    <span class="label-text font-semibold">API Token</span>
-                </label>
-                <input 
-                    type="text" 
-                    id="api-token" 
-                    class="input input-bordered w-full" 
-                    placeholder="Enter API token" 
                 />
             </div>
             <!-- Model Name -->
@@ -149,7 +138,7 @@
                     type="text" 
                     id="model-name" 
                     class="input input-bordered w-full" 
-                    placeholder="Enter model name" 
+                    placeholder="e.g., claude-3-opus-20240229" 
                     required 
                 />
             </div>
@@ -197,7 +186,7 @@
                 class="btn btn-primary" 
                 onclick="startConfiguredScan()"
             >
-                Start
+                Start Classification
             </button>
         </div>
     </div>
@@ -238,7 +227,7 @@
                 <td>{{ scan.status }}</td>
                 <td>
                     <button class="btn btn-sm btn-primary view-scan-btn" data-scan-id="{{ scan.id }}" data-scan-name="{{ scan.name|escape }}">View</button>
-                    <button class="btn btn-sm btn-secondary scan-btn" data-scan-id="{{ scan.id }}">Scan</button>
+                    <button class="btn btn-sm btn-secondary scan-btn" data-scan-id="{{ scan.id }}">Classify</button>
                 </td>
             </tr>
             {% endfor %}
@@ -260,7 +249,8 @@ function closeViewModal() {
     document.getElementById('viewScanModal').close();
 }
 
-function openScanConfigModal() {
+function openScanConfigModal(scanId) {
+    document.getElementById('scan-id').value = scanId;
     document.getElementById('scanConfigModal').showModal();
 }
 
@@ -269,7 +259,36 @@ function closeScanConfigModal() {
 }
 
 function startConfiguredScan() {
-    // This function is intentionally empty as per requirements
+    const scanId = document.getElementById('scan-id').value;
+    const apiKey = document.getElementById('api-key').value;
+    const modelName = document.getElementById('model-name').value;
+    const temperature = parseFloat(document.getElementById('temperature').value);
+    const maxTokens = parseInt(document.getElementById('max-tokens').value);
+
+    if (!scanId || !apiKey || !modelName || isNaN(temperature) || isNaN(maxTokens)) {
+        showToast('Please fill in all fields', 'error');
+        return;
+    }
+
+    $.ajax({
+        url: '/claude/start-classification',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            scan_id: parseInt(scanId),
+            api_key: apiKey,
+            model_name: modelName,
+            temperature: temperature,
+            max_tokens: maxTokens
+        }),
+        success: function(response) {
+            showToast(response.message, 'success');
+            closeScanConfigModal();
+        },
+        error: function(xhr) {
+            showToast('Failed to start classification', 'error');
+        }
+    });
 }
 
 function showToast(message, type) {
@@ -284,7 +303,6 @@ function refreshTable() {
     const name = $('#name-filter').val();
     const status = $('#status-filter').val();
     $.get('/scans/list', { name: name, status: status }, function(response) {
-        console.log('Refresh table response:', response);
         const scans = response.scans;
         const tbody = $('#scans-table-body');
         tbody.empty();
@@ -298,7 +316,7 @@ function refreshTable() {
                     <td>${scan.status}</td>
                     <td>
                         <button class="btn btn-sm btn-primary view-scan-btn" data-scan-id="${scan.id}" data-scan-name="${escapedName}">View</button>
-                        <button class="btn btn-sm btn-secondary scan-btn" data-scan-id="${scan.id}">Scan</button>
+                        <button class="btn btn-sm btn-secondary scan-btn" data-scan-id="${scan.id}">Classify</button>
                     </td>
                 </tr>
             `);
@@ -306,7 +324,6 @@ function refreshTable() {
         attachViewScanListeners();
         attachScanConfigListeners();
     }, 'json').fail(function(xhr) {
-        console.error('Refresh table failed:', xhr);
         showToast('Failed to refresh table', 'error');
     });
 }
@@ -333,13 +350,11 @@ function startScan() {
             https_proxy: httpsProxy
         }),
         success: function(response) {
-            console.log('Start scan response:', response);
             showToast(response.message, 'success');
             closeModal();
             refreshTable();
         },
         error: function(xhr) {
-            console.error('Start scan failed:', xhr);
             showToast('Failed to start scan', 'error');
         }
     });
@@ -365,11 +380,9 @@ function testConnection() {
             https_proxy: httpsProxy
         }),
         success: function(response) {
-            console.log('Test connection response:', response);
             showToast(response.message, 'success');
         },
         error: function(xhr) {
-            console.error('Test connection failed:', xhr);
             let errorMessage = 'Failed to test connection';
             if (xhr.responseJSON && xhr.responseJSON.detail) {
                 errorMessage = xhr.responseJSON.detail;
@@ -380,40 +393,21 @@ function testConnection() {
 }
 
 function viewScan(scanId, scanName) {
-    console.log('viewScan called with scanId:', scanId, 'scanName:', scanName);
-    console.log('scanName type:', typeof scanName);
-    
     $.get(`/scans/${scanId}`, function(response) {
-        console.log('Raw response:', response);
-        console.log('Response type:', typeof response);
-        console.log('Response.result:', response.result);
-        console.log('Result type:', typeof response.result);
-        console.log('Result length:', response.result ? response.result.length : 'N/A');
-        
         $('#view-scan-title').text(scanName);
-        
         if (typeof response.result === 'string' && response.result) {
-            console.log('Attempting to beautify result:', response.result);
             try {
-                const parsed = JSON.parse(response.result); // Parse for beautification
-                const formatted = JSON.stringify(parsed, null, 2); // Pretty-print
-                console.log('Beautified result:', formatted);
+                const parsed = JSON.parse(response.result);
+                const formatted = JSON.stringify(parsed, null, 2);
                 $('#view-scan-result').text(formatted);
             } catch (e) {
-                console.error('Beautification failed:', e);
-                console.log('Falling back to raw result:', response.result);
-                $('#view-scan-result').text(response.result); // Display raw plaintext
+                $('#view-scan-result').text(response.result);
             }
         } else {
-            console.log('No valid result, using default');
             $('#view-scan-result').text('No result available');
         }
-        
-        console.log('Opening modal');
         document.getElementById('viewScanModal').showModal();
     }, 'json').fail(function(xhr) {
-        console.error('AJAX request failed:', xhr);
-        console.error('Status:', xhr.status, 'Response:', xhr.responseText);
         showToast('Failed to load scan result', 'error');
     });
 }
@@ -426,36 +420,30 @@ function clearTable() {
         url: '/scans/delete-all',
         type: 'DELETE',
         success: function(response) {
-            console.log('Clear table response:', response);
             showToast(response.message, 'success');
             refreshTable();
         },
         error: function(xhr) {
-            console.error('Clear table failed:', xhr);
             showToast('Failed to clear table', 'error');
         }
     });
 }
 
 function attachViewScanListeners() {
-    console.log('Attaching view scan listeners');
     document.querySelectorAll('.view-scan-btn').forEach(button => {
         button.addEventListener('click', function() {
             const scanId = this.getAttribute('data-scan-id');
             const scanName = this.getAttribute('data-scan-name');
-            console.log('View button clicked - scanId:', scanId, 'scanName:', scanName);
             viewScan(parseInt(scanId), scanName);
         });
     });
 }
 
 function attachScanConfigListeners() {
-    console.log('Attaching scan config listeners');
     document.querySelectorAll('.scan-btn').forEach(button => {
         button.addEventListener('click', function() {
             const scanId = this.getAttribute('data-scan-id');
-            console.log('Scan button clicked - scanId:', scanId);
-            openScanConfigModal();
+            openScanConfigModal(scanId);
         });
     });
 }
