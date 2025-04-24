@@ -120,7 +120,7 @@
     </select>
     <button class="btn btn-primary" onclick="refreshTable()">Filter</button>
     <button class="btn btn-primary" onclick="refreshTable()">Refresh</button>
-    <button class="btn btn-error" onclick="clearTable()">Clear Table</button> <!-- New Clear Table button -->
+    <button class="btn btn-error" onclick="clearTable()">Clear Table</button>
 </div>
 
 <!-- Scans Table -->
@@ -143,7 +143,7 @@
                 <td>{{ scan.timestamp }}</td>
                 <td>{{ scan.status }}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary" onclick="viewScan({{ scan.id }}, {{ scan.name|tojson|safe }})">View</button>
+                    <button class="btn btn-sm btn-primary view-scan-btn" data-scan-id="{{ scan.id }}" data-scan-name="{{ scan.name|escape }}">View</button>
                 </td>
             </tr>
             {% endfor %}
@@ -182,7 +182,7 @@ function refreshTable() {
         const tbody = $('#scans-table-body');
         tbody.empty();
         scans.forEach(scan => {
-            const safeName = JSON.stringify(scan.name);
+            const escapedName = $('<div/>').text(scan.name).html(); // Plaintext escaping
             tbody.append(`
                 <tr>
                     <td>${scan.id}</td>
@@ -190,11 +190,12 @@ function refreshTable() {
                     <td>${scan.timestamp}</td>
                     <td>${scan.status}</td>
                     <td>
-                        <button class="btn btn-sm btn-primary" onclick="viewScan(${scan.id}, ${safeName})">View</button>
+                        <button class="btn btn-sm btn-primary view-scan-btn" data-scan-id="${scan.id}" data-scan-name="${escapedName}">View</button>
                     </td>
                 </tr>
             `);
         });
+        attachViewScanListeners();
     }, 'json').fail(function(xhr) {
         console.error('Refresh table failed:', xhr);
         showToast('Failed to refresh table', 'error');
@@ -270,25 +271,31 @@ function testConnection() {
 }
 
 function viewScan(scanId, scanName) {
+    console.log('viewScan called with scanId:', scanId, 'scanName:', scanName);
+    console.log('scanName type:', typeof scanName);
+    
     $.get(`/scans/${scanId}`, function(response) {
-        console.log('View scan response:', response);
-        const scan = response.scan;
-        $('#view-scan-title').text(scan.name);
-        if (scan.result) {
-            try {
-                // Validate that scan.result is a string and valid JSON
-                JSON.parse(scan.result); // Throws if invalid
-                $('#view-scan-result').text(scan.result);
-            } catch (e) {
-                console.error('Error displaying scan result:', e);
-                $('#view-scan-result').text('Error: Invalid JSON result - ' + e.message);
-            }
+        console.log('Raw response:', response);
+        console.log('Response type:', typeof response);
+        console.log('Response.result:', response.result);
+        console.log('Result type:', typeof response.result);
+        console.log('Result length:', response.result ? response.result.length : 'N/A');
+        
+        $('#view-scan-title').text(scanName);
+        
+        if (typeof response.result === 'string' && response.result) {
+            console.log('Setting result to pre:', response.result);
+            $('#view-scan-result').text(response.result);
         } else {
+            console.log('No valid result, using default');
             $('#view-scan-result').text('No result available');
         }
+        
+        console.log('Opening modal');
         document.getElementById('viewScanModal').showModal();
     }, 'json').fail(function(xhr) {
-        console.error('View scan failed:', xhr);
+        console.error('AJAX request failed:', xhr);
+        console.error('Status:', xhr.status, 'Response:', xhr.responseText);
         showToast('Failed to load scan result', 'error');
     });
 }
@@ -311,5 +318,19 @@ function clearTable() {
         }
     });
 }
+
+function attachViewScanListeners() {
+    console.log('Attaching view scan listeners');
+    document.querySelectorAll('.view-scan-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const scanId = this.getAttribute('data-scan-id');
+            const scanName = this.getAttribute('data-scan-name');
+            console.log('View button clicked - scanId:', scanId, 'scanName:', scanName);
+            viewScan(parseInt(scanId), scanName);
+        });
+    });
+}
+
+attachViewScanListeners();
 </script>
 {% endblock %}

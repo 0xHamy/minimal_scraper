@@ -119,18 +119,6 @@ def run_scan(scan_id: int):
 
 def scan_to_dict(scan: Scan) -> dict:
     """Convert a Scan object to a dictionary with decoded result"""
-    result_dict = {"message": "No result available"}
-    
-    if scan.result:
-        print(f"Raw scan result (ID: {scan.id}): {scan.result}")  # Debug log
-        try:
-            decoded_bytes = base64.b64decode(scan.result)
-            decoded_str = decoded_bytes.decode('utf-8')
-            result_dict = json.loads(decoded_str)
-        except (base64.binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as e:
-            print(f"Failed to decode scan result (ID: {scan.id}): {str(e)}")
-            result_dict = {"error": f"Decoding error: {str(e)}"}
-    
     return {
         "id": scan.id,
         "name": scan.name,
@@ -138,8 +126,7 @@ def scan_to_dict(scan: Scan) -> dict:
         "http_proxy": scan.http_proxy,
         "https_proxy": scan.https_proxy,
         "timestamp": scan.timestamp.isoformat(),
-        "status": scan.status,
-        "result": result_dict
+        "status": scan.status
     }
 
 
@@ -198,24 +185,21 @@ async def get_scan_endpoint(
     if not db_scan:
         raise HTTPException(status_code=404, detail="Scan not found")
     
-    # Initialize result as a default JSON string
     result_str = '{"message": "No result available"}'
     
-    # Decode the base64 result if it exists
     if db_scan.result:
-        print(f"Raw scan result (ID: {scan_id}): {db_scan.result}")  # Debug log
+        print(f"Raw scan result (ID: {scan_id}): {db_scan.result}")
         try:
             decoded_bytes = base64.b64decode(db_scan.result)
             result_str = decoded_bytes.decode('utf-8')
-            # Validate that result_str is valid JSON (but keep it as a string)
-            json.loads(result_str)  # Raises JSONDecodeError if invalid
-        except (base64.binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as e:
+        except (base64.binascii.Error, UnicodeDecodeError) as e:
             print(f"Failed to decode scan result (ID: {scan_id}): {str(e)}")
-            result_str = json.dumps({"error": f"Decoding error: {str(e)}"})
+            result_str = '{"message": "Error decoding result"}'
     
-    print(f"Returning decoded result (ID: {scan_id}): {result_str}")  # Debug log
+    print(f"Returning decoded result (ID: {scan_id}): {result_str}")
     
-    return JSONResponse(content=result_str)
+    return JSONResponse(content={"result": result_str})
+
 
 @scans_router.delete("/delete-all")
 async def delete_all_scans(db: Session = Depends(get_db)):
