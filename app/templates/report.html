@@ -3,6 +3,11 @@
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">AI Reports</h1>
 
+<!-- Clear Table Button -->
+<div class="mb-4">
+    <button class="btn btn-error" onclick="clearTable()">Clear Table</button>
+</div>
+
 <!-- Reports Table -->
 <div id="reports-table" class="mt-4">
     <table class="table w-full">
@@ -35,13 +40,15 @@
 
 <!-- Modal for Viewing Report Details -->
 <dialog id="viewReportModal" class="modal">
-    <div class="modal-box">
+    <div class="modal-box max-w-3xl">
         <h3 class="font-bold text-lg">Report Details</h3>
         <div class="form-control">
             <label class="label">
-                <span class="label-text">Classification Result</span>
+                <span class="label-text">Classification Results</span>
             </label>
-            <pre id="view-report-result" class="bg-base-200 p-4 rounded-lg w-full h-64 overflow-auto"></pre>
+            <div id="view-report-result" class="bg-base-200 p-4 rounded-lg w-full overflow-auto">
+                <!-- Posts will be dynamically inserted here -->
+            </div>
         </div>
         <div class="modal-action">
             <button type="button" class="btn btn-ghost" onclick="closeViewReportModal()">Close</button>
@@ -54,19 +61,48 @@ function closeViewReportModal() {
     document.getElementById('viewReportModal').close();
 }
 
+function showToast(message, type) {
+    const toast = $('<div>').addClass('toast toast-start');
+    const alert = $('<div>').addClass(`alert ${type === 'error' ? 'alert-error' : 'alert-success'}`).text(message);
+    toast.append(alert);
+    $('body').append(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
 function viewReport(reportId) {
     $.get(`/claude/reports/${reportId}`, function(response) {
         const classification = response.classification;
+        const resultDiv = $('#view-report-result');
+        resultDiv.empty(); // Clear previous content
+
         if (classification) {
             try {
                 const parsed = JSON.parse(classification);
-                const formatted = JSON.stringify(parsed, null, 2);
-                $('#view-report-result').text(formatted);
+                if (parsed.posts && Array.isArray(parsed.posts)) {
+                    parsed.posts.forEach((post, index) => {
+                        const postHtml = `
+                            <div class="mb-4 p-4 border rounded-lg bg-base-100">
+                                <h4 class="font-semibold">Post ${index + 1}</h4>
+                                <p><strong>Content:</strong> ${$('<div>').text(post.content).html()}</p>
+                                <p><strong>Classification:</strong> ${post.classification}</p>
+                                <p><strong>Scores:</strong></p>
+                                <ul>
+                                    <li>Positive: ${post.scores.positive.toFixed(2)}</li>
+                                    <li>Neutral: ${post.scores.neutral.toFixed(2)}</li>
+                                    <li>Negative: ${post.scores.negative.toFixed(2)}</li>
+                                </ul>
+                            </div>
+                        `;
+                        resultDiv.append(postHtml);
+                    });
+                } else {
+                    resultDiv.text('No posts available');
+                }
             } catch (e) {
-                $('#view-report-result').text(classification);
+                resultDiv.text('Error parsing classification: ' + classification);
             }
         } else {
-            $('#view-report-result').text('No classification available');
+            resultDiv.text('No classification available');
         }
         document.getElementById('viewReportModal').showModal();
     }, 'json').fail(function(xhr) {
@@ -74,12 +110,22 @@ function viewReport(reportId) {
     });
 }
 
-function showToast(message, type) {
-    const toast = $('<div>').addClass('toast toast-start');
-    const alert = $('<div>').addClass(`alert ${type === 'error' ? 'alert-error' : 'alert-success'}`).text(message);
-    toast.append(alert);
-    $('body').append(toast);
-    setTimeout(() => toast.remove(), 3000);
+function clearTable() {
+    if (!confirm('Are you sure you want to delete all AI reports? This action cannot be undone.')) {
+        return;
+    }
+    $.ajax({
+        url: '/claude/delete-all-reports',
+        type: 'DELETE',
+        success: function(response) {
+            showToast(response.message, 'success');
+            // Refresh the table
+            $('#reports-table-body').empty();
+        },
+        error: function(xhr) {
+            showToast('Failed to clear table', 'error');
+        }
+    });
 }
 
 document.querySelectorAll('.view-report-btn').forEach(button => {

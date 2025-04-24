@@ -111,3 +111,14 @@ async def get_report(report_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Report not found")
     return JSONResponse(content={"classification": report.classification})
 
+
+@claude_router.delete("/delete-all-reports")
+async def delete_all_reports(db: Session = Depends(get_db)):
+    try:
+        db.query(AIReport).delete()
+        db.commit()
+        return JSONResponse(content={"message": "All AI reports deleted successfully"})
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete AI reports: {str(e)}")
+
