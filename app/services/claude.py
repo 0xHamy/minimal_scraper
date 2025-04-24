@@ -30,6 +30,8 @@ def claude_classify(
 - Neutral: Selling unrelated items.
 - Negative: Warnings, general posts or complaints.
 
+The content must be specifically about selling access to a company or business whose name is mentioned in the post. 
+
 Return **only** a JSON object with:
 - `classification`: "Positive", "Neutral", or "Negative".
 - `scores`: Probabilities for `positive`, `neutral`, `negative` (summing to 1).

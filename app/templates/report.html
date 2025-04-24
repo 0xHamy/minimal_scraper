@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">AI Reports</h1>
+
+<!-- Reports Table -->
+<div id="reports-table" class="mt-4">
+    <table class="table w-full">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Scan ID</th>
+                <th>Name</th>
+                <th>Timestamp</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="reports-table-body">
+            {% for report in reports %}
+            <tr>
+                <td>{{ report.id }}</td>
+                <td>{{ report.scan_id }}</td>
+                <td>{{ report.name }}</td>
+                <td>{{ report.timestamp }}</td>
+                <td>{{ report.status }}</td>
+                <td>
+                    <button class="btn btn-sm btn-primary view-report-btn" data-report-id="{{ report.id }}">View</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal for Viewing Report Details -->
+<dialog id="viewReportModal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg">Report Details</h3>
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text">Classification Result</span>
+            </label>
+            <pre id="view-report-result" class="bg-base-200 p-4 rounded-lg w-full h-64 overflow-auto"></pre>
+        </div>
+        <div class="modal-action">
+            <button type="button" class="btn btn-ghost" onclick="closeViewReportModal()">Close</button>
+        </div>
+    </div>
+</dialog>
+
+<script>
+function closeViewReportModal() {
+    document.getElementById('viewReportModal').showModal();
+}
+
+function viewReport(reportId) {
+    $.get(`/claude/reports/${reportId}`, function(response) {
+        const classification = response.classification;
+        if (classification) {
+            try {
+                const parsed = JSON.parse(classification);
+                const formatted = JSON.stringify(parsed, null, 2);
+                $('#view-report-result').text(formatted);
+            } catch (e) {
+                $('#view-report-result').text(classification);
+            }
+        } else {
+            $('#view-report-result').text('No classification available');
+        }
+        document.getElementById('viewReportModal').showModal();
+    }, 'json').fail(function(xhr) {
+        showToast('Failed to load report', 'error');
+    });
+}
+
+function showToast(message, type) {
+    const toast = $('<div>').addClass('toast toast-start');
+    const alert = $('<div>').addClass(`alert ${type === 'error' ? 'alert-error' : 'alert-success'}`).text(message);
+    toast.append(alert);
+    $('body').append(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+document.querySelectorAll('.view-report-btn').forEach(button => {
+    button.addEventListener('click', function() {
+        const reportId = this.getAttribute('data-report-id');
+        viewReport(reportId);
+    });
+});
+</script>
+{% endblock %}
