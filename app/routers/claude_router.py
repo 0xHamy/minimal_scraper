@@ -18,7 +18,6 @@ class StartClassification(BaseModel):
     max_tokens: int = 100
 
 def classify_posts(scan: Scan, api_key: str, model_name: str, temperature: float, max_tokens: int):
-    """Classify each post in the scan's result and return a JSON structure."""
     try:
         decoded_result = base64.b64decode(scan.result).decode('utf-8')
         posts_data = json.loads(decoded_result)
@@ -36,7 +35,6 @@ def classify_posts(scan: Scan, api_key: str, model_name: str, temperature: float
                 temperature=temperature
             )
             classified_posts.append({
-                "post_id": post.get("id"),
                 "content": content,
                 "classification": classification_result.get("classification"),
                 "scores": classification_result.get("scores")
