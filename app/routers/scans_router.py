@@ -169,3 +169,18 @@ async def get_scan_endpoint(
     return JSONResponse(
         content={"message": "Scan retrieved", "scan": scan_dict}
     )
+
+
+@scans_router.delete("/delete-all")
+async def delete_all_scans(db: Session = Depends(get_db)):
+    """Delete all scans from the database."""
+    try:
+        db.query(Scan).delete()
+        db.commit()
+        return JSONResponse(
+            content={"message": "All scans deleted successfully"}
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete scans: {str(e)}")
+

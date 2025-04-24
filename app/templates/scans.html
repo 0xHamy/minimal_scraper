@@ -48,6 +48,7 @@
     </select>
     <button class="btn btn-primary" onclick="refreshTable()">Filter</button>
     <button class="btn btn-primary" onclick="refreshTable()">Refresh</button>
+    <button class="btn btn-error" onclick="clearTable()">Clear Table</button> <!-- New Clear Table button -->
 </div>
 
 <!-- Scans Table -->
@@ -70,7 +71,7 @@
                 <td>{{ scan.timestamp }}</td>
                 <td>{{ scan.status }}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary" onclick="viewScan(${scan.id}, '${scan.name}')">View</button>
+                    <button class="btn btn-sm btn-primary" onclick="viewScan({{ scan.id }}, {{ scan.name|tojson|safe }})">View</button>
                 </td>
             </tr>
             {% endfor %}
@@ -109,6 +110,7 @@ function refreshTable() {
         const tbody = $('#scans-table-body');
         tbody.empty();
         scans.forEach(scan => {
+            const safeName = JSON.stringify(scan.name);
             tbody.append(`
                 <tr>
                     <td>${scan.id}</td>
@@ -116,7 +118,7 @@ function refreshTable() {
                     <td>${scan.timestamp}</td>
                     <td>${scan.status}</td>
                     <td>
-                        <button class="btn btn-sm btn-primary" onclick="viewScan(${scan.id}, '${scan.name}')">View</button>
+                        <button class="btn btn-sm btn-primary" onclick="viewScan(${scan.id}, ${safeName})">View</button>
                     </td>
                 </tr>
             `);
@@ -161,6 +163,25 @@ function viewScan(scanId, scanName) {
     }, 'json').fail(function(xhr) {
         console.error('View scan failed:', xhr);
         showToast('Failed to load scan result', 'error');
+    });
+}
+
+function clearTable() {
+    if (!confirm('Are you sure you want to delete all scans? This action cannot be undone.')) {
+        return;
+    }
+    $.ajax({
+        url: '/scans/delete-all',
+        type: 'DELETE',
+        success: function(response) {
+            console.log('Clear table response:', response);
+            showToast(response.message, 'success');
+            refreshTable();
+        },
+        error: function(xhr) {
+            console.error('Clear table failed:', xhr);
+            showToast('Failed to clear table', 'error');
+        }
     });
 }
 </script>
