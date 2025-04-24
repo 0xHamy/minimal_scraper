@@ -28,6 +28,9 @@ def scrape_posts(onion_url, proxies, headers=None, timeout=30):
         if not table:
             raise ValueError("Table not found in HTML")
         
+        # Extract base URL (e.g., http://ft4uneyq3hu3txsmw6rnzrzrgxcbddze3hukj3kef6pvtlaycu6f7jid.onion)
+        base_url = onion_url.split('/marketplace')[0]
+        
         posts = []
         for row in table.find('tbody').find_all('tr'):
             cells = row.find_all('td')
@@ -37,14 +40,35 @@ def scrape_posts(onion_url, proxies, headers=None, timeout=30):
             title = title_cell.text.strip()
             link = title_cell.find('a')['href']
             if link.startswith('/'):
-                link = onion_url.rstrip('/') + link
+                link = base_url.rstrip('/') + link
             category = cells[1].text.strip()
             date_str = cells[2].text.strip()
+            
+            # Fetch post content from the link
+            content_b64 = ''
+            try:
+                print(f"Fetching content from: {link}")
+                post_response = requests.get(link, proxies=proxies, headers=headers, timeout=timeout)
+                post_response.raise_for_status()
+                post_soup = BeautifulSoup(post_response.text, 'html.parser')
+                post_content_div = post_soup.find('div', class_='post-content')
+                if post_content_div:
+                    content_div = post_content_div.find('div', class_='content')
+                    if content_div:
+                        content_p = content_div.find('p') # Get first <p> tag
+                        if content_p:
+                            content = content_p.text.strip()
+                            content_b64 = base64.b64encode(content.encode('utf-8')).decode('utf-8')
+            except Exception as e:
+                print(f"Failed to fetch content for post {link}: {str(e)}")
+                content_b64 = base64.b64encode('{"message": "Error fetching content"}'.encode('utf-8')).decode('utf-8')
+            
             posts.append({
                 'title': title,
                 'category': category,
                 'date': date_str,
-                'link': link
+                'link': link,
+                'content': content_b64 # Base64-encoded post content
             })
         
         posts_json = json.dumps({'posts': posts})
@@ -52,7 +76,6 @@ def scrape_posts(onion_url, proxies, headers=None, timeout=30):
     
     except Exception as e:
         raise e
-
 
 if __name__ == "__main__":
     proxies = {
@@ -65,4 +88,3 @@ if __name__ == "__main__":
         print(result)
     except Exception as e:
         print(f"Error: {str(e)}")
-
