@@ -1,11 +1,11 @@
 from anthropic import Anthropic
 import json
 
+
 def claude_classify(
     api_key: str,
     model_name: str,
-    prompt_template: str,
-    post: str,
+    post_content: str,
     max_tokens: int = 100,
     temperature: float = 0.1
 ) -> dict:
@@ -16,8 +16,7 @@ def claude_classify(
     Args:
         api_key (str): Anthropic API key.
         model_name (str): Claude model name (e.g., 'claude-3-5-sonnet-20241022').
-        prompt_template (str): Prompt with {{POST}} placeholder.
-        post (str): Post text to classify.
+        post_content (str): Post text to classify.
         max_tokens (int, optional): Max output tokens. Defaults to 100.
         temperature (float, optional): Sampling temperature. Defaults to 0.1.
 
@@ -25,7 +24,31 @@ def claude_classify(
         dict: JSON with classification, scores, and error (if any).
     """
     client = Anthropic(api_key=api_key)
-    prompt = prompt_template.replace("{{POST}}", post)
+    prompt_template = """
+    Does this post discuss selling initial access to a company (e.g., RDP, VPN, admin access), selling unrelated items (e.g., accounts, tools), or warnings/complaints? Classify it as:
+- Positive: Selling initial access.
+- Neutral: Selling unrelated items.
+- Negative: Warnings, general posts or complaints.
+
+Return **only** a JSON object with:
+- `classification`: "Positive", "Neutral", or "Negative".
+- `scores`: Probabilities for `positive`, `neutral`, `negative` (summing to 1).
+
+Wrap the JSON in ```json
+{
+  ...
+}
+``` to ensure proper formatting. Do not include any reasoning or extra text.
+
+Post:
+```markdown
+{{POST}}
+``` 
+
+Do not include any other text or explanations.
+Make sure to return the JSON object in the specified format.
+"""
+    prompt = prompt_template.replace("{{POST}}", post_content)
 
     try:
         message = client.messages.create(
@@ -50,38 +73,13 @@ def claude_classify(
 if __name__ == "__main__":
     API_KEY = "" 
     MODEL_NAME = "claude-3-7-sonnet-20250219"
-    PROMPT_TEMPLATE = """
-Does this post discuss selling initial access to a company (e.g., RDP, VPN, admin access), selling unrelated items (e.g., accounts, tools), or warnings/complaints? Classify it as:
-- Positive: Selling initial access.
-- Neutral: Selling unrelated items.
-- Negative: Warnings, general posts or complaints.
-
-Return **only** a JSON object with:
-- `classification`: "Positive", "Neutral", or "Negative".
-- `scores`: Probabilities for `positive`, `neutral`, `negative` (summing to 1).
-
-Wrap the JSON in ```json
-{
-  ...
-}
-``` to ensure proper formatting. Do not include any reasoning or extra text.
-
-Post:
-```markdown
-{{POST}}
-``` 
-
-Do not include any other text or explanations.
-Make sure to return the JSON object in the specified format.
-"""
 
     sample_post = """Selling access to Horizon Logistics\nRevenue: $1.2B\nAccess: RDP with DA\nPrice: 0.8 BTC\nDM for details"""
 
-    result = classify_post_with_claude(
+    result = claude_classify(
         api_key=API_KEY,
         model_name=MODEL_NAME,
-        prompt_template=PROMPT_TEMPLATE,
-        post=sample_post,
+        post_content=sample_post,
         max_tokens=100,
         temperature=0.1
     )

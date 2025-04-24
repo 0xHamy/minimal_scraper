@@ -144,6 +144,7 @@
                 <td>{{ scan.status }}</td>
                 <td>
                     <button class="btn btn-sm btn-primary view-scan-btn" data-scan-id="{{ scan.id }}" data-scan-name="{{ scan.name|escape }}">View</button>
+                    <button class="btn btn-sm btn-secondary scan-btn" data-scan-id="{{ scan.id }}">Scan</button>
                 </td>
             </tr>
             {% endfor %}
