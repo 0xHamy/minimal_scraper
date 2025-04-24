@@ -56,10 +56,10 @@ def scrape_posts(onion_url, proxies, headers=None, timeout=30):
 
 if __name__ == "__main__":
     proxies = {
-        'http': 'socks5h://172.17.0.2:9050',
-        'https': 'socks5h://172.17.0.2:9050'
+        'http': 'socks5h://172.23.0.2:9050',
+        'https': 'socks5h://172.23.0.2:9050'
     }
-    onion_url = 'http://p5uxnaqbs77uklgg2r6rmwteo3snvaojh57buniphkpckmxwgcx5i2qd.onion/marketplace/sellers'
+    onion_url = 'http://ft4uneyq3hu3txsmw6rnzrzrgxcbddze3hukj3kef6pvtlaycu6f7jid.onion/marketplace/sellers'
     try:
         result = scrape_posts(onion_url, proxies)
         print(result)

@@ -182,7 +182,7 @@ function refreshTable() {
         const tbody = $('#scans-table-body');
         tbody.empty();
         scans.forEach(scan => {
-            const escapedName = $('<div/>').text(scan.name).html(); // Plaintext escaping
+            const escapedName = $('<div/>').text(scan.name).html();
             tbody.append(`
                 <tr>
                     <td>${scan.id}</td>
@@ -284,8 +284,17 @@ function viewScan(scanId, scanName) {
         $('#view-scan-title').text(scanName);
         
         if (typeof response.result === 'string' && response.result) {
-            console.log('Setting result to pre:', response.result);
-            $('#view-scan-result').text(response.result);
+            console.log('Attempting to beautify result:', response.result);
+            try {
+                const parsed = JSON.parse(response.result); // Parse for beautification
+                const formatted = JSON.stringify(parsed, null, 2); // Pretty-print
+                console.log('Beautified result:', formatted);
+                $('#view-scan-result').text(formatted);
+            } catch (e) {
+                console.error('Beautification failed:', e);
+                console.log('Falling back to raw result:', response.result);
+                $('#view-scan-result').text(response.result); // Display raw plaintext
+            }
         } else {
             console.log('No valid result, using default');
             $('#view-scan-result').text('No result available');

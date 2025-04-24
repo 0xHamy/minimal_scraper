@@ -192,6 +192,10 @@ async def get_scan_endpoint(
         try:
             decoded_bytes = base64.b64decode(db_scan.result)
             result_str = decoded_bytes.decode('utf-8')
+            # Remove trailing % if present
+            if result_str.endswith('%'):
+                result_str = result_str[:-1]
+                print(f"Removed trailing % from decoded result (ID: {scan_id}): {result_str}")
         except (base64.binascii.Error, UnicodeDecodeError) as e:
             print(f"Failed to decode scan result (ID: {scan_id}): {str(e)}")
             result_str = '{"message": "Error decoding result"}'
