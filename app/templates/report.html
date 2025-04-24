@@ -40,18 +40,18 @@
 
 <!-- Modal for Viewing Report Details -->
 <dialog id="viewReportModal" class="modal">
-    <div class="modal-box max-w-3xl">
-        <h3 class="font-bold text-lg">Report Details</h3>
+    <div class="modal-box w-11/12 max-w-5xl h-3/4 overflow-y-auto bg-base-200">
+        <div class="sticky top-0 z-10 bg-base-200 flex justify-end py-2">
+            <button type="button" class="btn btn-ghost" onclick="closeViewReportModal()">Close</button>
+        </div>
+        <h3 class="font-bold text-lg mb-4">Report Details</h3>
         <div class="form-control">
             <label class="label">
                 <span class="label-text">Classification Results</span>
             </label>
-            <div id="view-report-result" class="bg-base-200 p-4 rounded-lg w-full overflow-auto">
+            <div id="view-report-result" class="bg-base-200 p-4 rounded-lg w-full">
                 <!-- Posts will be dynamically inserted here -->
             </div>
-        </div>
-        <div class="modal-action">
-            <button type="button" class="btn btn-ghost" onclick="closeViewReportModal()">Close</button>
         </div>
     </div>
 </dialog>
@@ -80,17 +80,42 @@ function viewReport(reportId) {
                 const parsed = JSON.parse(classification);
                 if (parsed.posts && Array.isArray(parsed.posts)) {
                     parsed.posts.forEach((post, index) => {
+                        let classColor = '';
+                        switch (post.classification) {
+                            case 'Positive':
+                                classColor = 'text-green-500';
+                                break;
+                            case 'Neutral':
+                                classColor = 'text-yellow-500';
+                                break;
+                            case 'Negative':
+                                classColor = 'text-red-500';
+                                break;
+                            default:
+                                classColor = '';
+                        }
                         const postHtml = `
                             <div class="mb-4 p-4 border rounded-lg bg-base-100">
                                 <h4 class="font-semibold">Post ${index + 1}</h4>
                                 <p><strong>Content:</strong> ${$('<div>').text(post.content).html()}</p>
-                                <p><strong>Classification:</strong> ${post.classification}</p>
-                                <p><strong>Scores:</strong></p>
-                                <ul>
-                                    <li>Positive: ${post.scores.positive.toFixed(2)}</li>
-                                    <li>Neutral: ${post.scores.neutral.toFixed(2)}</li>
-                                    <li>Negative: ${post.scores.negative.toFixed(2)}</li>
-                                </ul>
+                                <table class="table table-compact w-full mt-2">
+                                    <thead>
+                                        <tr>
+                                            <th>Classification</th>
+                                            <th>Positive</th>
+                                            <th>Neutral</th>
+                                            <th>Negative</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td class="${classColor} font-semibold">${post.classification}</td>
+                                            <td>${post.scores.positive.toFixed(2)}</td>
+                                            <td>${post.scores.neutral.toFixed(2)}</td>
+                                            <td>${post.scores.negative.toFixed(2)}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         `;
                         resultDiv.append(postHtml);
@@ -119,7 +144,6 @@ function clearTable() {
         type: 'DELETE',
         success: function(response) {
             showToast(response.message, 'success');
-            // Refresh the table
             $('#reports-table-body').empty();
         },
         error: function(xhr) {
