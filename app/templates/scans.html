@@ -109,6 +109,100 @@
     </div>
 </dialog>
 
+<!-- New Modal for Scan Configuration -->
+<dialog id="scanConfigModal" class="modal">
+    <div class="modal-box max-w-2xl">
+        <h3 class="text-2xl font-bold mb-6">Configure Scan</h3>
+        <form class="space-y-6">
+            <!-- Scan Name (as saved to the scans table) -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-semibold">Scan</span>
+                </label>
+                <input 
+                    type="text" 
+                    id="scan-name" 
+                    class="input input-bordered w-full" 
+                    placeholder="Enter scan name from scans table" 
+                    required 
+                />
+            </div>
+            
+            <!-- API Token (Hidden) -->
+            <div class="form-control hidden">
+                <label class="label">
+                    <span class="label-text font-semibold">API Token</span>
+                </label>
+                <input 
+                    type="text" 
+                    id="api-token" 
+                    class="input input-bordered w-full" 
+                    placeholder="Enter API token" 
+                />
+            </div>
+            <!-- Model Name -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-semibold">Model Name</span>
+                </label>
+                <input 
+                    type="text" 
+                    id="model-name" 
+                    class="input input-bordered w-full" 
+                    placeholder="Enter model name" 
+                    required 
+                />
+            </div>
+            <!-- Temperature -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-semibold">Temperature</span>
+                </label>
+                <input 
+                    type="number" 
+                    id="temperature" 
+                    class="input input-bordered w-full" 
+                    value="0.1" 
+                    step="0.1" 
+                    min="0" 
+                    max="1" 
+                    required 
+                />
+            </div>
+            <!-- Max Tokens -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-semibold">Max Tokens</span>
+                </label>
+                <input 
+                    type="number" 
+                    id="max-tokens" 
+                    class="input input-bordered w-full" 
+                    value="100" 
+                    min="1" 
+                    required 
+                />
+            </div>
+        </form>
+        <div class="modal-action mt-8 flex justify-between">
+            <button 
+                type="button" 
+                class="btn btn-ghost" 
+                onclick="closeScanConfigModal()"
+            >
+                Cancel
+            </button>
+            <button 
+                type="button" 
+                class="btn btn-primary" 
+                onclick="startConfiguredScan()"
+            >
+                Start
+            </button>
+        </div>
+    </div>
+</dialog>
+
 <!-- Filters -->
 <div class="flex gap-4 mt-4">
     <input type="text" id="name-filter" placeholder="Search by name" class="input input-bordered" />
@@ -166,6 +260,18 @@ function closeViewModal() {
     document.getElementById('viewScanModal').close();
 }
 
+function openScanConfigModal() {
+    document.getElementById('scanConfigModal').showModal();
+}
+
+function closeScanConfigModal() {
+    document.getElementById('scanConfigModal').close();
+}
+
+function startConfiguredScan() {
+    // This function is intentionally empty as per requirements
+}
+
 function showToast(message, type) {
     const toast = $('<div>').addClass('toast toast-start');
     const alert = $('<div>').addClass(`alert ${type === 'error' ? 'alert-error' : 'alert-success'}`).text(message);
@@ -192,11 +298,13 @@ function refreshTable() {
                     <td>${scan.status}</td>
                     <td>
                         <button class="btn btn-sm btn-primary view-scan-btn" data-scan-id="${scan.id}" data-scan-name="${escapedName}">View</button>
+                        <button class="btn btn-sm btn-secondary scan-btn" data-scan-id="${scan.id}">Scan</button>
                     </td>
                 </tr>
             `);
         });
         attachViewScanListeners();
+        attachScanConfigListeners();
     }, 'json').fail(function(xhr) {
         console.error('Refresh table failed:', xhr);
         showToast('Failed to refresh table', 'error');
@@ -341,6 +449,18 @@ function attachViewScanListeners() {
     });
 }
 
+function attachScanConfigListeners() {
+    console.log('Attaching scan config listeners');
+    document.querySelectorAll('.scan-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const scanId = this.getAttribute('data-scan-id');
+            console.log('Scan button clicked - scanId:', scanId);
+            openScanConfigModal();
+        });
+    });
+}
+
 attachViewScanListeners();
+attachScanConfigListeners();
 </script>
 {% endblock %}
