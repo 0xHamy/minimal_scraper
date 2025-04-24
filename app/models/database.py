@@ -13,6 +13,9 @@ class Scan(Base):
     __tablename__ = "scans"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
+    onion_url = Column(String)
+    http_proxy = Column(String)
+    https_proxy = Column(String)
     timestamp = Column(DateTime)
     status = Column(String)
     result = Column(Text)

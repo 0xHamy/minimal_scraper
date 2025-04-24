@@ -6,17 +6,89 @@
 
 <!-- Modal for Starting a Scan -->
 <dialog id="startScanModal" class="modal">
-    <div class="modal-box">
-        <h3 class="font-bold text-lg">Start New Scan</h3>
-        <div class="form-control">
-            <label class="label">
-                <span class="label-text">Scan Name</span>
-            </label>
-            <input type="text" id="scan-name" class="input input-bordered" />
-        </div>
-        <div class="modal-action">
-            <button type="button" class="btn btn-primary" onclick="startScan()">Start</button>
-            <button type="button" class="btn btn-ghost" onclick="closeModal()">Close</button>
+    <div class="modal-box max-w-2xl">
+        <h3 class="text-2xl font-bold mb-6">Start New Scan</h3>
+        <form class="space-y-6">
+            <!-- Scan Name -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-semibold">Scan Name</span>
+                </label>
+                <input 
+                    type="text" 
+                    id="scan-name" 
+                    class="input input-bordered w-full" 
+                    placeholder="Enter scan name" 
+                    required 
+                />
+            </div>
+            <!-- Onion URL -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-semibold">Onion URL</span>
+                </label>
+                <input 
+                    type="url" 
+                    id="onion-url" 
+                    class="input input-bordered w-full" 
+                    placeholder="http://example.onion" 
+                    required 
+                />
+            </div>
+            <!-- Proxy Inputs Grouped -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- HTTP Proxy -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">HTTP Proxy</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="http-proxy" 
+                        class="input input-bordered w-full" 
+                        placeholder="socks5h://localhost:9050" 
+                        required 
+                    />
+                </div>
+                <!-- HTTPS Proxy -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">HTTPS Proxy</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="https-proxy" 
+                        class="input input-bordered w-full" 
+                        placeholder="socks5h://localhost:9050" 
+                        required 
+                    />
+                </div>
+            </div>
+        </form>
+        <div class="modal-action mt-8 flex justify-between">
+            <button 
+                type="button" 
+                class="btn btn-ghost" 
+                onclick="closeModal()"
+            >
+                Cancel
+            </button>
+            <div class="flex gap-2">
+                <button 
+                    type="button" 
+                    class="btn btn-outline btn-secondary" 
+                    onclick="testConnection()"
+                >
+                    Test Connection
+                </button>
+                <button 
+                    type="button" 
+                    class="btn btn-primary" 
+                    onclick="startScan()"
+                >
+                    Start Scan
+                </button>
+            </div>
         </div>
     </div>
 </dialog>
@@ -131,15 +203,25 @@ function refreshTable() {
 
 function startScan() {
     const scanName = $('#scan-name').val();
-    if (!scanName) {
-        showToast('Please enter a scan name', 'error');
+    const onionUrl = $('#onion-url').val();
+    const httpProxy = $('#http-proxy').val();
+    const httpsProxy = $('#https-proxy').val();
+
+    if (!scanName || !onionUrl || !httpProxy || !httpsProxy) {
+        showToast('Please fill in all fields', 'error');
         return;
     }
+
     $.ajax({
         url: '/scans/create-scan',
         type: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify({ name: scanName }),
+        contentType: 'application/son',
+        data: JSON.stringify({
+            name: scanName,
+            onion_url: onionUrl,
+            http_proxy: httpProxy,
+            https_proxy: httpsProxy
+        }),
         success: function(response) {
             console.log('Start scan response:', response);
             showToast(response.message, 'success');
@@ -149,6 +231,40 @@ function startScan() {
         error: function(xhr) {
             console.error('Start scan failed:', xhr);
             showToast('Failed to start scan', 'error');
+        }
+    });
+}
+
+function testConnection() {
+    const onionUrl = $('#onion-url').val();
+    const httpProxy = $('#http-proxy').val();
+    const httpsProxy = $('#https-proxy').val();
+
+    if (!onionUrl || !httpProxy || !httpsProxy) {
+        showToast('Please fill in all fields to test connection', 'error');
+        return;
+    }
+
+    $.ajax({
+        url: '/scans/test-connection',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            onion_url: onionUrl,
+            http_proxy: httpProxy,
+            https_proxy: httpsProxy
+        }),
+        success: function(response) {
+            console.log('Test connection response:', response);
+            showToast(response.message, 'success');
+        },
+        error: function(xhr) {
+            console.error('Test connection failed:', xhr);
+            let errorMessage = 'Failed to test connection';
+            if (xhr.responseJSON && xhr.responseJSON.detail) {
+                errorMessage = xhr.responseJSON.detail;
+            }
+            showToast(errorMessage, 'error');
         }
     });
 }
