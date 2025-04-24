@@ -215,7 +215,7 @@ function startScan() {
     $.ajax({
         url: '/scans/create-scan',
         type: 'POST',
-        contentType: 'application/son',
+        contentType: 'application/json',
         data: JSON.stringify({
             name: scanName,
             onion_url: onionUrl,
@@ -274,7 +274,18 @@ function viewScan(scanId, scanName) {
         console.log('View scan response:', response);
         const scan = response.scan;
         $('#view-scan-title').text(scan.name);
-        $('#view-scan-result').text(JSON.stringify(scan.result, null, 2));
+        if (scan.result) {
+            try {
+                // Validate that scan.result is a string and valid JSON
+                JSON.parse(scan.result); // Throws if invalid
+                $('#view-scan-result').text(scan.result);
+            } catch (e) {
+                console.error('Error displaying scan result:', e);
+                $('#view-scan-result').text('Error: Invalid JSON result - ' + e.message);
+            }
+        } else {
+            $('#view-scan-result').text('No result available');
+        }
         document.getElementById('viewScanModal').showModal();
     }, 'json').fail(function(xhr) {
         console.error('View scan failed:', xhr);
